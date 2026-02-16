@@ -1,0 +1,153 @@
+\begin{tikzpicture}
+    \def\scale{0.7}
+    % Tractor Dimensions
+    \def\lTract{6.5*\scale}
+    \def\wTract{2.3*\scale}
+    \def\firstAxleTract{-\lTract+0.5}*\scale
+    \def\lCoup{3.7*\scale}
+    \def\cogxOne{-1.4*\scale}
+
+    \def\trackWidthTract{(\wTract/2-0.3*\scale)}
+
+    % Trailer Dimensions
+    \def\lTrail{9*\scale}
+    \def\wTrail{2.4*\scale}
+    \def\cogxTwo{4*\scale}
+    \def\lFrontTrail{0.5*\scale}
+    \def\lAxleTrailCoupling{5*\scale}
+
+    \def\trackWidthTrail{(\wTrail/2-0.3*\scale)}
+
+    % Axle Distances
+    \def\AxDistOne{3.4*\scale}
+     \def\AxDist{1.3*\scale}
+
+    % Tyre Dimensions
+     \def\lTire{0.9*\scale}
+     \def\wTire{0.3*\scale}
+
+     \def\nodeDist{0.3*\scale}
+
+     
+     % Angles
+    \def\ang{-30}
+    
+     \def\sAngL{30}
+     \def\sAngR{30}
+
+    % Calculations
+    \def\lTrailRecX{-cos(\ang)*(\lCoup)+\lFrontTrail}
+    \def\ArcSize{2*\scale}
+    
+    \def\lTrailRecY{sin(\ang)*(\lCoup)-\wTrail/2}
+     \def\trailCOGX{-\lCoup-cos(\ang)*(\cogxTwo)}
+     \def\trailCOGY{-sin(\ang)*(\cogxTwo)}
+
+     
+     \coordinate (CoG1) at (\cogxOne,0);
+     \coordinate (Coup) at (-\lCoup,0);
+     \coordinate (Coup2) at (-\lCoup+\ArcSize,0);
+     \coordinate (Coup3) at ({-\lCoup+cos(\ang)*\ArcSize},{sin(\ang)*\ArcSize});
+     \coordinate (rearTrail) at ({\trailCOGX},{\trailCOGY});
+
+     \def\tireLeftX{}
+     \def\tireRight{-sin(\sAng)*(2)}
+
+    \coordinate (firstAxle1) at (0,0);
+    \coordinate (tireLeft1) at (0,{(\wTract-0.4)/2});
+    \coordinate (tireRight1) at (0,{-(\wTract-0.4)/2});
+    \fill[black] (firstAxle1) circle (0.05);
+
+    % Draw a dashed line between tireLeft and tireRight
+    \draw[dashed] (tireLeft1) -- (tireRight1);
+    % Rotated Tires
+    \draw[dashed,rotate around={\sAngL:(0,{(\wTract-0.4)/2})}] 
+        (-\lTire/2,{(\wTract-0.4)/2 - \wTire/2}) rectangle++ (\lTire,\wTire) node[midway] {};
+    \draw[dashed,rotate around={\sAngR:(0,{-(\wTract-0.4)/2})}] 
+        (-\lTire/2,{-(\wTract-0.4)/2 - \wTire/2}) rectangle++ (\lTire,\wTire) node[midway] {};
+     
+    % Straight Tires
+    \foreach \x in {{-\AxDistOne},{-\AxDistOne-\AxDist}}{
+    \foreach \y in {-\trackWidthTract,\trackWidthTract}{
+        \draw[dashed] ({\x-\lTire/2},{\y - \wTire/2}) rectangle++ (\lTire,\wTire) node[midway] {};
+    }}
+
+    % Trailer Tires, needs to be rotated to match the angle of the trailer.
+    % As the coupling point is at almost the rear of the tractor, we need to offset the tires by the distance of the coupling point.
+    % and then the rotated length to the first axle of the trailer. We also need to add the "sine of length" to the y coordinate.
+    \coordinate (firstAxle) at ({-\lCoup-cos(\ang)*(\lAxleTrailCoupling)}, {-sin(\ang)*(\lAxleTrailCoupling)});
+    \coordinate (thirdAxle) at ({-\lCoup-cos(\ang)*(\lAxleTrailCoupling+\AxDist*2)}, {-sin(\ang)*(\lAxleTrailCoupling+\AxDist*2)});
+    \coordinate (CoG2) at ({\trailCOGX}, {\trailCOGY});
+
+    \foreach \x in {0,{\AxDist},{\AxDist*2}}{
+    \foreach \y in {-\trackWidthTrail,(\trackWidthTrail)}{
+            \def\axleCenterX{-\lCoup-cos(\ang)*(\lAxleTrailCoupling+\x)}
+            \def\axleCenterY{       -sin(\ang)*(\lAxleTrailCoupling+\x)}
+            \draw[dashed,rotate around={\ang:({\axleCenterX},{\axleCenterY})}] 
+                ({\axleCenterX-\lTire/2},{\axleCenterY+\y - \wTire/2}) rectangle++ (\lTire,\wTire) node[midway] {};
+    }}
+
+
+    %% Some additional lines
+    % Calculate the left and right tire positions of the firstAxle, needs to be rotated to match the angle of the trailer.
+    \coordinate (tireLeft) at ($(firstAxle) + ({-sin(\ang)*\trackWidthTrail)},{cos(\ang)*\trackWidthTrail})$);
+    \coordinate (tireRight) at ($(firstAxle) - ({-sin(\ang)*\trackWidthTrail},{cos(\ang)*\trackWidthTrail})$);
+
+    % Draw a dashed line between tireLeft and tireRight
+    \draw[dashed] (tireLeft) -- (tireRight);
+
+    % Calculate the left and right tire positions of the firstAxle, needs to be rotated to match the angle of the trailer.
+    \coordinate (tireLeft3) at ($(thirdAxle) + ({-sin(\ang)*\trackWidthTrail},{cos(\ang)*\trackWidthTrail})$);
+    \coordinate (tireRight3) at ($(thirdAxle) - ({-sin(\ang)*\trackWidthTrail},{cos(\ang)*\trackWidthTrail})$);
+
+    % Draw a dashed line between tireLeft and tireRight
+    \draw[dashed] (tireLeft3) -- (tireRight3);
+
+    % Add a marker for the center of these axles
+    \fill[black] (firstAxle) circle (0.05);
+    \fill[black] (thirdAxle) circle (0.05);
+
+    % Main Bodies
+    \fill[nearly opaque,white,rotate=\ang] ({\lTrailRecX},{\lTrailRecY}) rectangle++ (-\lTrail,\wTrail) node[midway] {};
+    \fill[nearly opaque,white] (\firstAxleTract,-\wTract/2) rectangle++ (\lTract,\wTract) node[midway] {};
+    \draw[] (\firstAxleTract,-\wTract/2) rectangle++ (\lTract,\wTract) node[midway] {};
+    \draw[,rotate=\ang] ({\lTrailRecX},{\lTrailRecY}) rectangle++ (-\lTrail,\wTrail) node[midway] {};
+    % Notes
+    \node at (\cogxOne,0) {$\centerofmass$};
+    \node at ({\trailCOGX},{\trailCOGY}) {$\centerofmass$};
+
+
+    % Some locations
+    \node [below right=0.05cm and 0.05cm of CoG1] {$\CG_1$};
+    \node [below =0.1cm of CoG2] {$\CG_2$};
+    \node [below =0.02cm of Coup] {$\Cr$};
+    \node [below = 0.01cm of firstAxle1] {$P_1$};
+    % Articulation Angle
+    \draw[dashed] (Coup) to (Coup2);
+    \draw[dashed] (Coup) to (Coup3);
+    \draw[dashed] (Coup) to (rearTrail);
+    \draw pic["$\psi_{2\to1}^z$",draw=black,angle radius=40*\scale,angle eccentricity=1.7*sqrt(\scale)] {angle=Coup3--Coup--Coup2};   
+
+    % Coupling Force
+    \draw[force] (Coup) --++ (1.5*\scale,0) node[above=0] {$f^x_{1,\Cr}$};
+    \draw[force] (Coup) --++ (0,2*\scale) node[right=0] {$f^y_{1,\Cr}$};
+
+    % Velocity in CoG
+    \draw[force] (CoG1) --++ (1*\scale,0) node[above=0] {$v^x_{1,\CG_1}$};
+    \draw[force] (CoG1) --++ (0,1.7*\scale) node[right=\nodeDist] {$v^y_{1,\CG_1}$};
+
+    % Velocity in CoG
+    \draw[force] (rearTrail) --++ ({1.5*\scale*cos(\ang)},{1.5*\scale*sin(\ang)}) node[above=0] {$v^x_{2,\CG_2}$};
+    \draw[force] (rearTrail) --++ ({-1.7*\scale*sin(\ang)},{1.7*\scale*cos(\ang)}) node[right=0] {$v^y_{2,\CG_2}$};
+    % Yaw Rate, arc centered around CoG, around 270 degrees, for both tractor and trailer
+    %\draw[force] (CoG1) ++(-0.4*\scale,0) arc (-180:90:0.4*\scale) node[above={\nodeDist}, right=\nodeDist] {$\omega^z_{1}$};
+
+    
+    %\draw[force] (rearTrail) ++({0.4*\scale*cos(-180+\ang)},{0.4*\scale*sin(-180+\ang)}) arc ({-180+\ang}:{90+\ang}:0.4*\scale) node[above={\nodeDist}, right={\nodeDist}] {$\omega^z_{2}$};
+    
+    % Distance between first axle and CoG of the trailer
+    \draw[<->] (firstAxle) -- (tireRight3) node[midway, below=-0.1] {$\bm{r}_{2,P_2\to\A3r_2}$};
+    \draw[<->,dashed] (firstAxle) -- (thirdAxle) node[midway, above={\nodeDist}, right=\nodeDist] {${r}^x_{2,P_2\to\A3r_2}$};
+    \draw[<->,dashed] (thirdAxle) -- (tireRight3) node[above right=\nodeDist] {};
+
+\end{tikzpicture}

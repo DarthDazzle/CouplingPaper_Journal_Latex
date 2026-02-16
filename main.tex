@@ -1,0 +1,16 @@
+\documentclass{article}
+
+\immediate\write18{pdflatex --jobname="test2" "\gdef \string\bwMacro{_bw} coupling_ieee.tex"}
+% \immediate\write18{
+%     pdflatex --jobname="test2" "\gdef\string\conditionmacro{2}\string\input\space main"
+% }
+% \immediate\write18{
+%     pdflatex --jobname="test3" "\gdef\string\conditionmacro{3}\string\input\space main"
+% }
+
+\usepackage{pdfpages}
+
+\begin{document}
+    \includepdf[pages=-]{test2.pdf}
+%    \verb|\conditionmacro| is \texttt{\meaning\conditionmacro}.
+\end{document}

@@ -1,0 +1,54 @@
+\usepackage{float} % Allows putting an [H] in \begin{figure} to specify the exact location of the figure
+\usepackage{xcolor}
+\usepackage{textcomp}
+\usepackage{multirow}
+
+%% Mathy
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{bm}
+\usepackage[bookmarks,bookmarksopen,bookmarksdepth=2]{hyperref}
+
+%% Imagy
+\usepackage{physics}
+\usepackage{ifthen}
+\usepackage[]{graphicx}
+\usepackage{svg}
+\usepackage{tikz}
+\usepackage{tikz-3dplot}
+%\usepackage{caption}
+\usepackage[outline]{contour} % glow around text
+
+
+\usetikzlibrary{decorations.markings}
+\usetikzlibrary{calc} % for pic
+\usetikzlibrary{angles,quotes} % for pic
+\usetikzlibrary{patterns}
+\usetikzlibrary{arrows.meta}
+\tikzset{>=latex} % for LaTeX arrow head
+\contourlength{1.2pt}
+\usetikzlibrary{shapes,arrows,positioning}
+
+\tikzstyle{force}=[->,black,thick,line cap=round]
+
+\newcommand\centerofmass{%
+    \tikz[radius=0.4em] {%
+        \fill (0,0) -- ++(0.4em,0) arc [start angle=0,end angle=90] -- ++(0,-0.8em) arc [start angle=270, end angle=180];%
+        \draw (0,0) circle;%
+    }%
+}
+
+%\usepackage{xcolor}
+%\DeclareUnicodeCharacter 0 $\theta$
+\DeclareUnicodeCharacter{1D703}{$\theta$}
+\DeclareUnicodeCharacter{1D463}{$v$}
+\DeclareUnicodeCharacter{1D466}{$y$}
+\DeclareUnicodeCharacter{1D714}{$\omega$}
+\DeclareUnicodeCharacter{1D467}{$z$}
+\DeclareUnicodeCharacter{1D439}{$\bm{F}$}
+\DeclareUnicodeCharacter{1D450}{$c$}
+
+%\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+ %   T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+
