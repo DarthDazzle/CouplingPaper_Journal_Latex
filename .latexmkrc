@@ -9,9 +9,9 @@ $postscript_mode = $dvi_mode = 0;
 $recorder = 1;
 
 # Ensure LaTeX can find files in parent directory when output dir is used
-$ENV{'TEXINPUTS'} = './/:' . ($ENV{'TEXINPUTS'} || '');
-$ENV{'BIBINPUTS'} = './/:' . ($ENV{'BIBINPUTS'} || '');
-$ENV{'BSTINPUTS'} = './/:' . ($ENV{'BSTINPUTS'} || '');
+$ENV{'TEXINPUTS'} = './/;' . ($ENV{'TEXINPUTS'} || '');
+$ENV{'BIBINPUTS'} = './/;' . ($ENV{'BIBINPUTS'} || '');
+$ENV{'BSTINPUTS'} = './/;' . ($ENV{'BSTINPUTS'} || '');
 
 # Move PDF back to root after compilation  
 $success_cmd = 'powershell -Command "Copy-Item build/%A.pdf . -Force"';
