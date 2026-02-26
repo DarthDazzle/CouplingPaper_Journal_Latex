@@ -21,7 +21,7 @@ build/
 *.vrb
 
 # Keep the final PDF
-!*.pdf
+*.pdf
 
 # IDE settings (uncomment to ignore)
 # .vscode/
