@@ -13,6 +13,7 @@
 \usepackage[labelfont=bf]{caption} % Explicit caption setup to avoid warning
 \captionsetup[table]{labelfont=normal,textfont=normal,name=Table,font=footnotesize}
 \begin{document}
+\pagestyle{plain}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Title
@@ -172,6 +173,7 @@ The modeling assumptions define the scope and fidelity of the derived dynamics:
     \item \textbf{Coupling as directional damper}: The inter-unit coupling is modeled as a directional damper acting on the relative velocity at the coupling point, yielding an explicit state-space formulation.
     \item \textbf{Fixed world frame}: The tractor reference point is fixed at the world origin. Global position and absolute heading are not estimated; the world frame $W$ and tractor frame $1$ share a common origin, with relative orientation parameterized by roll and pitch angles $\psi^{x}_{1}$ and $\psi^{y}_{1}$.
     \item \textbf{Relative yaw dynamics}: Although absolute heading is not modeled, yaw dynamics are retained through the yaw rates $\omega^{z}_{1}$ and $\omega^{z}_{2}$ and the articulation yaw $\psi^{z}_{2\to1}$.
+    \item \textbf{Rigid body kinematics}: Velocities at any point on a body are computed from the reference point using rigid-body kinematics, without slip or deformation.
 \end{itemize}
 
 Together, these assumptions yield a planar articulated-vehicle model with inclined road plane, suitable for Bayesian state estimation in real-time applications.
