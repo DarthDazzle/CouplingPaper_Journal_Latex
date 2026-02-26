@@ -303,7 +303,11 @@ Combining the kinematic relations, force models, and equations of motion, we arr
 \begin{equation}
     \dot{\bm x} = G(\bm x, \bm u, \bm\theta) + \bm w,
 \end{equation}
-where $G$ encapsulates the complex dynamics derived above. The state vector shown in \ref{eq:stateVector} each require a detailed expression for their time derivative, these are \begin{equation}
+where $G$ encapsulates the complex dynamics derived above. The state vector shown in \ref{eq:stateVector} each requires a detailed expression for its time derivative, denoted by $g_i$, i.e.,
+\begin{equation}
+    \dot{\bm x} = G(\bm x,\bm u,\bm\theta)+\bm w,\quad G=\begin{bmatrix}g_1(\bm x,\bm u,\bm\theta)\\ \vdots \\ g_{11}(\bm x,\bm u,\bm\theta)\end{bmatrix},
+\end{equation}
+\begin{equation}
     \frac{d}{dt}\begin{bmatrix}
     v^x_{1,\CG} \\
     v^y_{1,\CG} \\
@@ -318,17 +322,17 @@ where $G$ encapsulates the complex dynamics derived above. The state vector show
     f_{1,\Cr}^y \\
 \end{bmatrix} = \text{Refer to}
 \begin{bmatrix}
-    (\ref{eq:Kinematicacceleration}) \\
-    (\ref{eq:Kinematicacceleration}) \\
-    (\ref{eq:Euler}) \\
-    (\ref{eq:Euler}) \\
-    (\ref{eq:dotArticulation}) \\
-    (\ref{eq:dotAlpha}) \\
-    (\ref{eq:dotAlpha}) \\
-    (\ref{eq:dotOmegaX}) \\
-    (\ref{eq:dotOmegaY}) \\
-    (\ref{eq:Damper}) \\
-    (\ref{eq:Damper}) \\
+    g_1:\;(\ref{eq:Kinematicacceleration}) \\
+    g_2:\;(\ref{eq:Kinematicacceleration}) \\
+    g_3:\;(\ref{eq:Euler}) \\
+    g_4:\;(\ref{eq:Euler}) \\
+    g_5:\;(\ref{eq:dotArticulation}) \\
+    g_6:\;(\ref{eq:dotAlpha}) \\
+    g_7:\;(\ref{eq:dotAlpha}) \\
+    g_8:\;(\ref{eq:dotOmegaX}) \\
+    g_9:\;(\ref{eq:dotOmegaY}) \\
+    g_{10}:\;(\ref{eq:Damper}) \\
+    g_{11}:\;(\ref{eq:Damper}) \\
 \end{bmatrix},
 \end{equation}
 these expressions are the continous physical model, which is then programmatically manipulated to yield the final discrete-time state-space model used by the estimator. Their usage in the estimator is described in the next section.
