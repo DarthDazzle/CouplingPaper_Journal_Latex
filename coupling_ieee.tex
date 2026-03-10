@@ -64,7 +64,27 @@ In this work we propose a modeling approach that makes coupling-force estimation
 \end{equation}
 which yields explicit coupling-force dynamics when differentiated. Combined with Newton-Euler acceleration and yaw dynamics we arrive at a full picture that is a closed-form nonlinear process model suitable for Bayesian filtering using sensor signals typically available on commercial vehicles.
 Compared to our conference version, this journal article expands the modeling and estimation description for reproducibility, introducing the natural DAE model for comparison, and substantially broadens the evaluation, including real world data and robustness to variability in parameter and data.
+
+The main contributions of this work are:
+\begin{enumerate}
+    \item A novel damper-based coupling model that converts the naturally implicit (DAE) coupling-force dynamics into an explicit nonlinear state-space form, avoiding algebraic solvers at each time step.
+    \item A complete Bayesian estimation framework using the UKF for joint inference of lateral velocities, articulation angle, coupling forces, and uncertain parameters from standard onboard sensors.
+    \item A rigorous comparison against the natural DAE-based baseline model, quantifying the trade-off between modeling fidelity and computational tractability.
+    \item Validation on both high-fidelity simulation data (with parameter and noise variations) and real-world experimental data, demonstrating robustness across operating conditions.
+\end{enumerate}
+
+%% TODO: Add paper outline paragraph ("The remainder of this paper is organized as follows...")
+
 \subsection{Related Works}
+%% TODO: Write comprehensive literature review (~1--1.5 pages). Cover:
+%% - Vehicle state estimation for single-unit vehicles (EKF/UKF/observers: e.g., Ding et al., Selmanaj et al.)
+%% - Articulated/multi-body vehicle modeling (tractor-trailer dynamics literature)
+%% - Coupling/hitch force estimation (e.g., Habibnejad Korayem et al., Islam et al.)
+%% - Lateral velocity and sideslip angle estimation (e.g., Ding et al., Reina et al.)
+%% - Learning-based and hybrid approaches
+%% - Gap statement: limited work on computationally efficient *explicit* coupling-force estimation
+%%   suitable for real-time Bayesian filtering; most methods either ignore coupling force,
+%%   linearize small angles, or require implicit algebraic solves.
 
 \subsection{Problem formulation}
 \label{sec:problem}
@@ -102,7 +122,7 @@ Using this notation, the essential states are defined as follows. The tractor's 
     \label{fig:states} 
 \end{figure}
 
-Following ISO~8855~\cite{1400-1700_iso_nodate}, the body-fixed axes are defined such that $X$ is forward (longitudinal), $Y$ is left (lateral, viewed looking forward), and $Z$ is upward, forming a right-handed coordinate system. These coordinate frames are visualized in \ref{fig:frames}.
+Following ISO~8855~\cite{1400-1700_iso_nodate}, the body-fixed axes are defined such that $X$ is forward (longitudinal), $Y$ is left (lateral, viewed looking forward), and $Z$ is upward, forming a right-handed coordinate system. These coordinate frames are visualized in Fig.~\ref{fig:frames}.
 
 The notation for rotational operations is as follows: $R(\psi_{2\to1}^z)$ denotes the 2D rotation matrix corresponding to the yaw angle $\psi_{2\to1}^z$,
 \begin{equation}
@@ -127,7 +147,7 @@ We partition the model quantities into three categories:
 \begin{figure}
     \centering
     \includegraphics[width=0.9\linewidth]{imgs/ModelDrawings.pdf}
-    \caption{TemporaryFigure}
+    \caption{Coordinate frames and geometric definitions for the tractor--trailer combination.} %% TODO: Replace with final figure and caption
     \label{fig:frames}
 \end{figure}
 
@@ -335,7 +355,17 @@ where $G$ encapsulates the complex dynamics derived above. The state vector show
     g_{11}:\;(\ref{eq:Damper}) \\
 \end{bmatrix},
 \end{equation}
-these expressions are the continous physical model, which is then programmatically manipulated to yield the final discrete-time state-space model used by the estimator. Their usage in the estimator is described in the next section.
+these expressions are the continuous physical model, which is then programmatically manipulated to yield the final discrete-time state-space model used by the estimator. Their usage in the estimator is described in the next section.
+
+The input vector $\bm u$ collects all exogenous signals available to the estimator:
+%% TODO: Define input vector explicitly, e.g.:
+%% \bm u = [\tau_{1,\A 1}, \ldots, \tau_{2,\A n}, \delta, f^z_{1,\A 1}, \ldots]^\top
+%% and list what each element represents.
+
+The parameter vector $\bm\theta$ collects all uncertain or vehicle-specific quantities:
+%% TODO: Define parameter vector explicitly, e.g.:
+%% \bm\theta = [m_1, m_2, I^z_1, I^z_2, C_{1,\A1}, \ldots, l_{1,P\to CG}, \ldots]^\top
+%% and explain which are estimated vs. fixed.
 
 \subsection{Modeling state for measurements}
 As noted in Section~\ref{sec:tire_model} one assumption is no longitudinal slip, which allows the wheel speeds to be used as direct measurements of longitudinal velocity at the wheels. This is a common assumption in state estimation for commercial vehicles, where slip is often minimal during normal operation. However, it is important to note that this assumption may not hold in low-friction conditions or during aggressive maneuvers, and the estimator's performance may degrade under such circumstances. The measurement is then given by the longitudinal velocity at the wheel, which is computed on vector form as
@@ -359,6 +389,12 @@ Without the damper-based coupling formulation, the natural modeling approach is 
     \bm 0 = \bm v_{2,C}^{(1)} - \bm v_{1,C}, \label{eq:DAE_constraint}
 \end{equation}
 where $\bm f_{\Cr}$ is the coupling force that must be solved for at each time step to satisfy the constraint. This formulation captures the idealized rigid coupling behavior but requires solving an implicit equation at each time step, which can be computationally intensive and may not be suitable for real-time estimation. The damper-based model, in contrast, provides an explicit expression for the coupling force in terms of the states, allowing for a fully explicit state-space model that is more amenable to real-time filtering. The performance of the estimator using the damper-based model will be compared against this baseline DAE model in the evaluation section to demonstrate the benefits of the proposed modeling approach.
+
+%% TODO: Expand baseline model details:
+%% - How the DAE is solved at each time step (index reduction, constraint stabilization, or direct algebraic solve)
+%% - State vector for the baseline (coupling force removed from states; what replaces it?)
+%% - How the baseline estimator is structured (same UKF? reduced state dimension? different Q tuning?)
+%% - Computational cost comparison (implicit solve per sigma point vs. explicit evaluation)
 
 \section{Estimation Framework}
 \label{sec:estimation}
@@ -411,264 +447,122 @@ where $\bm\eta_k$ is zero-mean Gaussian with small covariance. This formulation 
 \subsection{Initialization and Tuning}
 Filter initialization uses a prior mean and covariance $\bm P_0$ chosen to represent conservative initial uncertainty. The covariances $\bm Q$ and $\bm R$ are then tuned on calibration data to balance responsiveness against robustness. In practice, increasing $\bm Q$ improves transient tracking at the expense of noisier estimates, while increasing $\bm R$ yields smoother estimates but slower correction from measurements.
 
+%% TODO: Add specifics:
+%% - Sampling rate T_s
+%% - UKF sigma-point parameters (alpha, beta, kappa)
+%% - Diagonal structure and order-of-magnitude values of Q (per state)
+%% - R values derived from sensor specs (Allan variance for IMU, wheel speed noise)
+%% - Which parameters in theta are augmented (cornering stiffness? mass?)
+%% - Initial covariance P_0 diagonal entries
 
-%%%%%%%%%%%% PAPER OUTLINE, KEEP UNTIL LATER %%%%%%%%%%%%%%%
-\section{Introduction}
-\subsection{Motivation}
-\begin{itemize}
-    \item Importance of accurate vehicle state and coupling force estimation for heavy commercial vehicles (safety, efficiency, control).
-    \item Challenges: complex dynamics, non-linearities, sensor noise, parameter uncertainties.
-    \item Briefly state the contribution of the original conference paper.
-\end{itemize}
-\subsection{Problem Statement}
-\begin{itemize}
-    \item Clearly define the objective: developing a robust estimator for key vehicle states (velocities, orientation, articulation angle) and inter-unit coupling forces for multi-body vehicles.
-    \item Emphasize the need for models that capture critical dynamic effects (e.g., those influenced by dampers).
-\end{itemize}
-\subsection{Literature Review (Comprehensive)}
-\begin{itemize}
-    \item Existing approaches to vehicle state estimation (Kalman filters, observers, machine learning).
-    \item Modeling of multi-body vehicle dynamics.
-    \item Coupling force estimation techniques.
-    \item Identify gaps addressed by this work (e.g., specific focus on damper effects, real-world validation of such detailed models).
-\end{itemize}
-\subsection{Contributions}
-\begin{itemize}
-    \item Detailed non-linear dynamic model for a tractor-trailer combination, including advanced coupling dynamics.
-    \item Application and tuning of an Unscented Kalman Filter (UKF) for state and parameter co-estimation.
-    \item \textbf{New:} Rigorous comparison against a baseline model (e.g., model without detailed damper dynamics).
-    \item \textbf{New:} Validation of the proposed estimator using both high-fidelity simulation data and real-world experimental data.
-    \item In-depth analysis of estimator performance across various driving scenarios and parameter variations.
-\end{itemize}
-\subsection{Paper Outline}
-\begin{itemize}
-    \item Brief overview of the subsequent sections.
-\end{itemize}
-\section{Vehicle and Sensor Modeling}
-\subsection{Coordinate Systems and Kinematics}
-\begin{itemize}
-    \item Define world, vehicle body, and sensor frames.
-    \item Transformation matrices (e.g., $R_{2/\w}(t) = R_z(\psi^z_{1\to2}(t)) R_{1/\w}(t)$).
-\end{itemize}
-\subsection{Tractor-Trailer Dynamics}
-\begin{itemize}
-    \item Equations of motion for longitudinal, lateral, and vertical dynamics (expanded from conference paper's Eq. (1)). % Assuming (1) is vdot
-    \item Rotational dynamics (roll, pitch, yaw rates - expanded from conference paper's Eq. (2)). % Assuming (2) is omegadot
-    \item Modeling of forces:
-    \begin{itemize}
-        \item Tire forces (e.g., Magic Formula, including cornering stiffness $C_{i,\mathcal{A} a}$).
-        \item Aerodynamic drag ($C^{dx}_1, C^{dy}_1$).
-        \item Gravitational forces.
-        \item Drive and brake torques ($\bm{\tau}_1, \bm{\tau}_2$).
-        \item Rolling resistance ($C^{rr}_1, C^{rr}_2$).
-    \end{itemize}
-\end{itemize}
-\subsection{Inter-Unit Coupling Model}
-\begin{itemize}
-    \item Detailed model of the coupling point forces and moments.
-    \item Inclusion of damper characteristics (if applicable to the main model).
-    \item Articulation angle dynamics ($\dot{\alpha}^z_{1/2}(t)$ from conference paper's Eq. (\ref{eq:artAngle})).
-\end{itemize}
-\subsection{Pose Dynamics}
-\begin{itemize}
-    \item Roll ($\alpha^x_1$) and pitch ($\alpha^y_1$) angle dynamics (Euler Angle Rate Transformation from conference paper's Eq. (\ref{eq:euler})).
-    \item Body-frame roll and pitch rate dynamics ($\dot \omega^x_1, \dot \omega^y_1$ from conference paper's Eqs. (\ref{eq:omegaDotx}), (\ref{eq:omegaDoty})).
-\end{itemize}
-\subsection{Complete Non-linear State-Space Model}
-\begin{itemize}
-    \item Definition of state vector $\bm{x}(t)$ (e.g., $[v^x_{1,\text{CG}}, v^y_{1,\text{CG}}, \omega^z_1, \omega^z_2, \alpha^x_1, \alpha^y_1, \psi^z_{1/2}, \omega^x_1, \omega^y_1, \dots]$).
-    \item Definition of input vector $\bm{u}(t)$ (e.g., $[\bm{\tau}_1, \bm{\tau}_2, \delta]^\top$).
-    \item Definition of parameter vector $\bm{\theta}$ (e.g., masses, inertias, lengths, stiffness coefficients like $C^{cc}$, radii $r$, etc., as in conference paper).
-    \item Continuous-time model $\dot{\bm{x}}(t) = \bm{G}(\bm{x}(t),\bm{u}(t), \bm{\theta}) + \bm{q}(t)$ (from conference paper's Eq. (\ref{eq:contModel})).
-    \item Detailed discussion of process noise $\bm{q}(t)$ and its components ($q^{\alpha,z}, q^{x\omega}, q^{y\omega}$, etc.).
-\end{itemize}
-\subsection{Sensor Models and Measurement Equations}
-\begin{itemize}
-    \item Accelerometer: $\hat{\bm{a}}_{1,\mathcal{A} 1}[k] = \bm{a}_{1,\mathcal{A} 1}[k] + \bm{w}^{a}[k]$ (experienced acceleration, conference paper's Eq. (\ref{eq:acc})).
-    \item Gyroscope: $\hat{\bm{\omega}}_1[k] = \bm{\omega}_1[k] + \bm{w}^{\omega}[k]$.
-    \item Wheel Speed Sensors: $\hat{\omega}_{\text{t} i,\mathcal{A} a,s}[k] = v^{x}_{i,\mathcal{A} a,s}/r_{i,\mathcal{A} a,s} + w^{\omega}_{\text{t} i,\mathcal{A} a,s}$.
-    \item \textbf{New (Potentially):} GPS, Steering Angle sensor models if used in real-data tests.
-    \item Detailed characterization of measurement noise ($\bm{w}^{a}, \bm{w}^{\omega}, w^{\omega w}_{i,\mathcal{A} a,s}$) and their covariances (e.g., Allan variance based, as in conference paper).
-    \item Measurement vector $\bm{z}[k] = \bm{H}({\bm{x}}[k],\bm{u}[k],\bm{\theta}) + \bm{v}[k]$.
-\end{itemize}
 
-\section{State Estimation Framework}
-\subsection{Recursive Bayesian Estimation}
-\begin{itemize}
-    \item Brief theoretical background (prediction and update steps).
-\end{itemize}
-\subsection{Unscented Kalman Filter (UKF)}
-\begin{itemize}
-    \item Justification for choosing UKF (handling non-linearities).
-    \item Detailed algorithm steps (sigma point generation, prediction, update).
-    \item Process Model Discretization:
-    \begin{itemize}
-        \item Euler approximation (as in conference paper) or higher-order methods (discuss choice and impact).
-        \item $\bm{x}(T(k+1)) \approx \bm{x}(Tk) + T\bm{G}(\bm{x}(Tk), \bm{u}(Tk), \bm{\theta}) + T\bm{q}(Tk)$.
-    \end{itemize}
-    \item State Augmentation for Parameter Uncertainty:
-    \begin{itemize}
-        \item Augmented state vector $[\bm{x}^\top, \bm{\theta}^\top]^\top$ (as in conference paper's Sec. III-D). % Assuming subsec:uncertainty is III-D
-        \item Discussion on which parameters are estimated/calibrated online.
-    \end{itemize}
-    \item Filter Tuning and Initialization:
-    \begin{itemize}
-        \item Initial state covariance $\bm{P}[0]$ (e.g., diagonal matrix with entries $10^{k_i}$).
-        \item Process noise covariance $\bm{Q}$ (values for $\bm{q}^v, \bm{q}^{z\omega}, {q}^{\alpha z}, q^{x\omega}, q^{y\omega}$).
-        \item Measurement noise covariance $\bm{R}$ (values for $\bm{w}^{\omega}, \bm{w}^{a}, w^{\omega w}_{i,\mathcal{A} a, s}$).
-        \item More detailed discussion on the tuning process (e.g., using calibration dataset as mentioned).
-    \end{itemize}
-\end{itemize}
+\section{Experimental Setup}
+\label{sec:experiments}
 
-\section{Baseline Model for Comparison}
-\subsection{Model Formulation (Without Damper / Simplified Coupling)}
-\begin{itemize}
-    \item Describe the alternative model used for the baseline.
-    \item Specify the differences in equations compared to the full model (e.g., how coupling forces are modeled differently).
-    \item Reference the section in the conference paper that hints at this: ``The baseline is constructed by describing the entire vehicle without the damper...''
-\end{itemize}
-\subsection{Estimator for Baseline Model}
-\begin{itemize}
-    \item Specify if the same UKF structure is used or a simpler filter.
-    \item Parameter tuning for the baseline estimator.
-\end{itemize}
+\subsection{Simulation Environment}
+%% TODO: Describe the high-fidelity simulator (Volvo Transport Model -- VTM)
+%% - Multi-body Simscape model, nonlinear tire forces, suspension, etc.
+%% - Reference: Fröjd (2021) Matlab EXPO presentation
+%% - What signals are extracted as ground truth
+%% - Adaptations made to VTM for this study
 
-\section{Experimental Validation}
-\subsection{Simulation Study}
-\begin{itemize}
-    \item Simulation Environment:
-    \begin{itemize}
-        \item Detailed description of the high-fidelity simulator (e.g., Volvo Transport Model - VTM, as in conference paper).
-        \item Adaptations made to VTM for this study.
-    \end{itemize}
-    \item Test Scenarios (as in conference paper, potentially expanded):
-    \begin{itemize}
-        \item Scenario 1: Circle (varying radii, speed, $0.3g$ limit).
-        \item Scenario 2: Sine-with-Dwell (Laine et al. \cite{laine_proposal_2008}, varying steering angles, $0.5g$ limit).
-        \item Scenario 3: Incline (varying inclinations $\pm10\%$, speeds, banked road).
-        \item Justification for scenario selection.
-    \end{itemize}
-    \item Simulation Variations (as in conference paper):
-    \begin{itemize}
-        \item Trailer load randomization (0-25,000 kg, CoM displacement $\mathcal{N}(0,0.1)$).
-        \item Cornering stiffness variations ($C_{i,\mathcal{A} a} \sim \mathcal{N}(9,1)$).
-    \end{itemize}
-    \item Sensor Modeling and Noise Generation:
-    \begin{itemize}
-        \item IMU noise based on Allan variance (e.g., Hussen et al. \cite{hussen_low-cost_2015}).
-        \item Assumptions for wheel angular velocity and steering angle noise.
-        \item Modeling of drive/brake torque discrepancies between estimator and simulation.
-    \end{itemize}
-    \item Data Extraction and Ground Truth.
-\end{itemize}
-\subsection{\textbf{New:} Real-World Data Experiments}
-\begin{itemize}
-    \item \textbf{Test Vehicle(s):}
-    \begin{itemize}
-        \item Detailed specifications of the tractor and trailer(s) used.
-        \item Instrumentation: List of sensors, their placement, and specifications.
-    \end{itemize}
-    \item \textbf{Data Acquisition:}
-    \begin{itemize}
-        \item Description of test tracks or routes.
-        \item Maneuvers performed (aim to cover similar conditions to simulations if possible, plus real-world driving).
-        \item Environmental conditions during tests.
-    \end{itemize}
-    \item \textbf{Ground Truth:}
-    \begin{itemize}
-        \item Methods for obtaining or approximating ground truth for key states (e.g., high-precision GPS/INS, optical systems).
-        \item Challenges in obtaining ground truth for all states (especially coupling forces).
-    \end{itemize}
-    \item \textbf{Data Preprocessing:}
-    \begin{itemize}
-        \item Synchronization of sensor data.
-        \item Filtering, outlier removal.
-        \item Calibration procedures for sensors.
-    \end{itemize}
-\end{itemize}
+\subsection{Test Scenarios}
+%% TODO: Describe each scenario and justify selection:
+%% - Scenario 1: Constant-radius circle (varying radii, speed, 0.3g lateral acceleration limit)
+%%   Tests steady-state lateral dynamics and coupling force
+%% - Scenario 2: Sine-with-Dwell (Laine et al. 2008, varying steering amplitudes, 0.5g limit)
+%%   Tests transient yaw/lateral response and coupling force reversals
+%% - Scenario 3: Incline (varying inclinations ±10%, varying speeds, banked road)
+%%   Tests gravity compensation, roll/pitch estimation, longitudinal coupling force
+
+\subsection{Parameter and Noise Variations}
+%% TODO: Describe Monte Carlo-style variations:
+%% - Trailer load randomization (0--25,000 kg, CoM displacement ~ N(0, 0.1))
+%% - Cornering stiffness variations (C ~ N(9,1) × 10^4 N/rad)
+%% - IMU noise modeled via Allan variance (Hussen et al. 2015)
+%% - Wheel speed and steering angle sensor noise
+%% - Drive/brake torque discrepancy between estimator model and simulator
+
+\subsection{Real-World Data Experiments}
+%% TODO: Describe real-world test setup:
+%% - Test vehicle(s): tractor and trailer specifications
+%% - Instrumentation: sensor list, placement, specifications
+%% - Test tracks/routes and maneuvers performed
+%% - Environmental conditions
+%% - Ground truth: high-precision GPS/INS, optical systems, load cells
+%% - Challenges in obtaining coupling-force ground truth
+%% - Data preprocessing: synchronization, filtering, outlier removal, calibration
+
+\subsection{Performance Metrics}
+The estimator is evaluated using three complementary metrics.
+The root mean square error (RMSE) for state $j$ is
+\begin{equation}
+    \mathrm{RMSE}_j = \sqrt{\frac{1}{N}\sum_{k=1}^{N} \epsilon_j[k]^2},
+\end{equation}
+where $\epsilon_j[k] = x_j[k] - \hat{x}_j[k]$ is the estimation error at time step $k$.
+The average normalized estimation error squared (ANEES) quantifies filter consistency:
+\begin{equation}
+    \mathrm{ANEES}_j = \frac{1}{N}\sum_{k=1}^{N} \epsilon_j[k]\,P_{j,j}[k]^{-1}\,\epsilon_j[k].
+\end{equation}
+For a consistent filter, $\mathrm{ANEES}_j \approx 1$; values above one indicate overconfidence, and values below one indicate conservatism.
+Finally, the maximum absolute error is
+\begin{equation}
+    \max|\epsilon_j| = \max_{k} |\epsilon_j[k]|.
+\end{equation}
 
 \section{Results and Discussion}
-\subsection{Performance Metrics (as in conference paper)}
-\begin{itemize}
-    \item Root Mean Square Error (RMSE): $RMSE_j = \sqrt{\frac{1}{\text{N}}\left(\sum_k (\epsilon_j[k])^2\right)}$.
-    \item Average Normalized Estimation Error Squared (ANEES): $ANEES_j = \frac{1}{\text{N}}\sum_k\epsilon_j[k]P_{j,j}[k]^{-1}\epsilon_j[k]$.
-    \item Maximum Absolute Error: $\text{Max }\epsilon_j = \max_{k}|\bm{\epsilon}_j[k]|$.
-    \item Discussion on ANEES interpretation (optimality, over/under confidence).
-\end{itemize}
+\label{sec:results}
+
 \subsection{Simulation Results}
-\begin{itemize}
-    \item Quantitative comparison of the proposed model vs. baseline model for all scenarios and key states ($v^y_{1,\text{CG}}, v^y_{2,\text{CG}}, f^x_{1,\text{Cr}}, f^y_{1,\text{Cr}}, \psi^z_{1/2}$, etc.).
-    \begin{itemize}
-        \item Present in detailed tables (extending Table I from conference paper). % Assuming tab:result is Table I
-    \end{itemize}
-    \item Qualitative analysis:
-    \begin{itemize}
-        \item Plots showing estimated states vs. true states for both models (extending Figs. 1 and 2 from conf paper). % Assuming fig:circleArt and fig:latSineForce are Fig 1 and 2
-        \item Error plots and distribution.
-    \end{itemize}
-    \item Discussion of results:
-    \begin{itemize}
-        \item Performance in different scenarios (circle, sine, slope).
-        \item Impact of parameter variations (load, cornering stiffness).
-        \item Analysis of challenging estimations (e.g., lateral coupling force).
-        \item Limitations observed (e.g., uncaptured dynamics like lateral weight transfer, as noted in conference paper).
-    \end{itemize}
-\end{itemize}
-\subsection{\textbf{New:} Real-World Data Results}
-\begin{itemize}
-    \item Quantitative comparison of the proposed model vs. baseline model using real data.
-    \begin{itemize}
-        \item Tables with RMSE, ANEES (if covariance is well-characterized), Max Error against available ground truth or reference.
-    \end{itemize}
-    \item Qualitative analysis:
-    \begin{itemize}
-        \item Plots of estimated states vs. measured/reference data for representative maneuvers.
-        \item Demonstrate filter convergence and tracking.
-    \end{itemize}
-    \item Discussion of results:
-    \begin{itemize}
-        \item Performance under real-world conditions (sensor noise, unmodeled dynamics, environmental factors).
-        \item Comparison with simulation results: identify consistencies and discrepancies.
-        \item Challenges encountered during real-world testing and data analysis.
-    \end{itemize}
-\end{itemize}
-\subsection{Overall Discussion}
-\begin{itemize}
-    \item Synthesize findings from both simulation and real-world tests.
-    \item Clearly demonstrate the benefits (or drawbacks) of the detailed damper model compared to the baseline.
-    \item Robustness and sensitivity of the estimator.
-    \item Computational aspects (if relevant).
-    \item Implications for vehicle safety systems or control applications.
-\end{itemize}
+%% TODO: Write simulation results:
+%% - Quantitative comparison tables: damper model vs. DAE baseline, all scenarios,
+%%   key states (v^y_1, v^y_2, f^x_C, f^y_C, psi, omega^z_1, omega^z_2)
+%% - RMSE, ANEES, Max Error per state per scenario
+%% - Time-series plots: estimate vs. ground truth with ±2σ bands
+%%   (at minimum: one circle, one sine-with-dwell, one incline example)
+%% - Error distribution plots / box plots across Monte Carlo runs
+%% - Discussion: performance across scenarios, impact of load/stiffness variation,
+%%   challenging states (lateral coupling force), uncaptured dynamics (weight transfer)
 
-\section{Conclusion and Future Work}
-\subsection{Summary of Key Findings}
-\begin{itemize}
-    \item Recap the main results regarding the performance of the proposed estimator and its comparison to the baseline, across simulations and real data.
-\end{itemize}
-\subsection{Reiteration of Contributions}
-\begin{itemize}
-    \item Highlight how the journal paper extends the conference work.
-\end{itemize}
-\subsection{Limitations}
-\begin{itemize}
-    \item The model does not capture lateral weight transfer or load transfer between the tractor and trailer, except for the static load distribution at the coupling point.
-    \item Longitudinal slip is neglected; longitudinal forces are limited to a simple rolling resistance and drive/brake torque model.
-    \item The linear tire model is valid in high-friction scenarios where tires operate within their linear range and longitudinal slip is minimal. The model is not intended for low-friction conditions or aggressive braking maneuvers where slip and longitudinal forces are significant.
-    \item The directional damper coupling model is a simplification of the complex dynamics at the coupling point.
-    \item Acknowledge any remaining limitations of the model, estimator, or experimental validation.
-\end{itemize}
-\subsection{Future Work}
-\begin{itemize}
-    \item Suggestions for model improvements (e.g., incorporating more detailed tire models, lateral transfer, advanced damper models).
-    \item Alternative estimation techniques (e.g., particle filters, machine learning hybrids).
-    \item Using ODE estimator
-    \item Extension to different vehicle configurations or operational conditions.
-    \item Online adaptation of more model parameters.
-    \item Real-time implementation and testing on an embedded platform.
-\end{itemize}
+\subsection{Real-World Data Results}
+%% TODO: Write real-world results:
+%% - Quantitative tables against available ground truth
+%% - Time-series plots of estimated vs. measured/reference states
+%% - Filter convergence demonstration
+%% - Comparison with simulation results: consistencies and discrepancies
+%% - Discussion of real-world challenges (sensor noise, unmodeled dynamics)
 
+\subsection{Discussion}
+%% TODO: Write overall discussion:
+%% - Synthesize simulation and real-world findings
+%% - Damper model vs. DAE baseline: accuracy, robustness, computational cost
+%% - Sensitivity to damper coefficient d_c selection
+%% - Robustness to parameter mismatch
+%% - Practical implications for vehicle safety systems and control
+%% - Computational cost: time per filter step, suitability for embedded deployment
 
+\section{Conclusion}
+\label{sec:conclusion}
+%% TODO: Write conclusion (~0.5--1 page) covering:
+%%
+%% Summary of key findings:
+%% - The damper-based coupling model converts DAE to explicit ODE, enabling real-time UKF
+%% - Estimation accuracy for coupling force, articulation angle, lateral velocity
+%% - Performance validated on simulation and real-world data
+%%
+%% Limitations:
+%% - No lateral weight transfer modeling
+%% - Longitudinal slip neglected (high-friction only)
+%% - Linear tire model does not capture saturation
+%% - Damper coupling approximation (not true rigid constraint)
+%%
+%% Future work:
+%% - Nonlinear tire models (Magic Formula) for low-friction scenarios
+%% - Lateral load transfer and suspension dynamics
+%% - Alternative estimators (particle filters, ML hybrids, continuous-discrete EKF)
+%% - Extension to multi-trailer configurations (A-double, B-double)
+%% - Online adaptation of damper coefficient
+%% - Embedded real-time implementation and field testing
 
 \bibliography{references}
 \end{document}
