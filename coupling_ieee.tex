@@ -339,14 +339,23 @@ $g_{11}$ & $\dot{f}_{1,\Cr}^y$ & \eqref{eq:Damper} \\
 These expressions are the continuous physical model, which is then programmatically manipulated to yield the final discrete-time state-space model used by the estimator. Their usage in the estimator is described in the next section.
 
 The input vector $\bm u$ collects all exogenous signals available to the estimator:
-%% TODO: Define input vector explicitly, e.g.:
-%% \bm u = [\tau_{1,\A 1}, \ldots, \tau_{2,\A n}, \delta, f^z_{1,\A 1}, \ldots]^\top
-%% and list what each element represents.
+%% TODO: Define input vector explicitly:
+%% \bm u = [\tau_{1,\A 1}, ..., \tau_{2,\A 3}, \delta_{steer}, f^z_{1,\A 1}, ..., f^z_{2,\A 3}]^\top
+%% - Drive/brake torques for all 6 axles (12 wheels, but torque per axle)
+%% - Front steering angle
+%% - Normal loads per axle (measured or estimated from air spring pressure)
+%% Total: ~10 inputs. List in a small table.
 
 The parameter vector $\bm\theta$ collects all uncertain or vehicle-specific quantities:
-%% TODO: Define parameter vector explicitly, e.g.:
-%% \bm\theta = [m_1, m_2, I^z_1, I^z_2, C_{1,\A1}, \ldots, l_{1,P\to CG}, \ldots]^\top
-%% and explain which are estimated vs. fixed.
+%% TODO: Define parameter vector:
+%% \bm\theta = [m_2, C_{1,\A1}, ..., C_{2,\A3}, l_{CG,1}, l_{CG,2}, d_c]^\top
+%% Split into:
+%%   - Fixed (known from vehicle spec): geometry, wheelbase, track width, wheel radii
+%%   - Uncertain but not estimated: m_1, I^z_1 (tractor inertia known from commissioning)
+%%   - Augmented into UKF state: trailer mass m_2, cornering stiffnesses C_{i,Aj},
+%%     and possibly damper coefficient d_c
+%% Justify which are augmented vs. fixed: augment parameters that (a) vary with
+%% operating condition and (b) significantly affect coupling force estimation.
 
 \subsection{Modeling state for measurements}
 As noted in Section~\ref{sec:tire_model} one assumption is no longitudinal slip, which allows the wheel speeds to be used as direct measurements of longitudinal velocity at the wheels. This is a common assumption in state estimation for commercial vehicles, where slip is often minimal during normal operation. However, it is important to note that this assumption may not hold in low-friction conditions or during aggressive maneuvers, and the estimator's performance may degrade under such circumstances. The measurement is then given by the longitudinal velocity at the wheel, which is computed on vector form as
@@ -372,10 +381,18 @@ The baseline model is expected to provide a more accurate representation of the 
 
 
 %% TODO: Expand baseline model details:
-%% - How the DAE is solved at each time step (index reduction, constraint stabilization, or direct algebraic solve)
-%% - State vector for the baseline (coupling force removed from states; what replaces it?)
-%% - How the baseline estimator is structured (same UKF? reduced state dimension? different Q tuning?)
-%% - Computational cost comparison (implicit solve per sigma point vs. explicit evaluation)
+%% - State vector: 9 states (remove f^x_{1,C}, f^y_{1,C}; articulation angle replaces
+%%   independent trailer yaw). Coupling force recovered post-hoc from constraint equation.
+%% - Mass matrix M(phi) depends on articulation angle -> must be inverted at every
+%%   sigma point evaluation. Show symbolic size / number of operations.
+%% - Same UKF structure, same Q/R tuning philosophy, but:
+%%   (a) reduced state dimension (9 vs 11)
+%%   (b) M(phi)^{-1} computed per sigma point -> higher cost per evaluation
+%%   (c) coupling force not directly filtered -> noisier post-hoc estimate
+%% - Computational cost: report symbolic expression count and MEX compilation time
+%%   for both models. The Lagrangian model's M(phi) inversion is the bottleneck.
+%% - This comparison is the central contribution: same estimation framework,
+%%   different dynamics model, isolating the effect of the coupling formulation.
 
 \section{Estimation Framework}
 \label{sec:estimation}
@@ -453,51 +470,127 @@ In conjunction with the RT3000 systems, data from the vehicle's onboard sensors 
 The test maneuvers were designed to elicit significant coupling dynamics across different operating conditions. These included steady-state cornering at moderate speed, transient braking maneuvers, and lane change maneuvers. The recorded data was processed offline to evaluate the estimator's performance in terms of accuracy and robustness under real operating conditions, including effects not captured in simulation such as road irregularities and sensor calibration errors.
 
 In addition to these primary scenarios, the combination was subjected to low friction conditions (e.g., ice and snow) to evaluate estimator performance under extreme conditions where the no-slip assumption may be violated. This testing provided insights into the estimator's limitations and potential failure modes in real-world applications.
-%% TODO: Add specifics:
-%% - Sampling rate T_s
-%% - UKF sigma-point parameters (alpha, beta, kappa)
-%% - Diagonal structure and order-of-magnitude values of Q (per state)
-%% - R values derived from sensor specs (Allan variance for IMU, wheel speed noise)
-%% - Which parameters in theta are augmented (cornering stiffness? mass?)
-%% - Initial covariance P_0 diagonal entries
+%% TODO: Add UKF implementation specifics:
+%% - Sampling rate T_s = 0.01 s (100 Hz, matching VTM output rate)
+%% - UKF sigma-point parameters: alpha=1e-3, beta=2 (Gaussian), kappa=0
+%% - Q diagonal structure (order of magnitude):
+%%   States 1-2 (v_x, v_y): ~0.1 m^2/s^2  (tire model mismatch)
+%%   States 3-4 (omega_z):   ~0.01 rad^2/s^2
+%%   State 5 (psi):          ~1e-4 rad^2 (kinematic, low noise)
+%%   States 6-7 (alpha):     ~1e-4 rad^2
+%%   States 8-9 (omega_xy):  ~0.1 rad^2/s^2 (road disturbance)
+%%   States 10-11 (f_c):     ~1e4 N^2 (coupling force process noise)
+%% - R values:
+%%   Wheel speeds: sigma ~ 0.1 rad/s
+%%   Gyroscope: sigma ~ 0.01 rad/s (IMU grade)
+%%   Accelerometer: sigma ~ 0.05 m/s^2
+%%   Steering angle: sigma ~ 0.002 rad
+%% - Augmented parameters: C_{y,front}, C_{y,rear}, m_2 (3 parameters)
+%%   Random walk noise: eta ~ [100 N/rad, 100 N/rad, 10 kg] per step
+%% - P_0: diagonal, large initial uncertainty (10x steady-state values)
+%%   to demonstrate filter convergence from uninformative prior
 
 
 \section{Experimental Setup}
 \label{sec:experiments}
 
 \subsection{Simulation Environment}
-%% TODO: Describe the high-fidelity simulator (Volvo Transport Model -- VTM)
-%% - Multi-body Simscape model, nonlinear tire forces, suspension, etc.
-%% - Reference: Fröjd (2021) Matlab EXPO presentation
-%% - What signals are extracted as ground truth
-%% - Adaptations made to VTM for this study
+%% TODO: Describe VTM (1 paragraph):
+%% - High-fidelity multi-body Simulink/Simscape vehicle dynamics model (cite Fröjd 2021 Matlab EXPO)
+%% - Configuration: 3-axle tractor (Tractor3Profile) + 3-axle semitrailer (ReVeReSem219Profile)
+%% - PAC2002 Magic Formula tire model with full nonlinear slip/load dependence
+%% - Includes suspension dynamics, drivetrain, steering compliance
+%% - VTM serves as ground truth: coupling forces, articulation angle, body velocities,
+%%   yaw rates are extracted directly from the simulation output
+%% - Synthetic sensor measurements (IMU, wheel speeds, steering angle) generated from
+%%   VTM outputs with additive Gaussian noise matching real sensor specifications
+%% - State that the estimator never sees the VTM internals; it only processes noisy measurements
 
 \subsection{Test Scenarios}
-%% TODO: Describe each scenario and justify selection:
-%% - Scenario 1: Constant-radius circle (varying radii, speed, 0.3g lateral acceleration limit)
-%%   Tests steady-state lateral dynamics and coupling force
-%% - Scenario 2: Sine-with-Dwell (Laine et al. 2008, varying steering amplitudes, 0.5g limit)
-%%   Tests transient yaw/lateral response and coupling force reversals
-%% - Scenario 3: Incline (varying inclinations ±10%, varying speeds, banked road)
-%%   Tests gravity compensation, roll/pitch estimation, longitudinal coupling force
+%% TODO: Present 4 maneuvers as systematic coverage of the coupling force plane (F_x,c vs F_y,c).
+%% Include a table with columns: Maneuver | Duration | Speed profile | Steering input | Grade | Coupling regime
+%%
+%% 1. Circle (75 s): Speed ramp 5->25 m/s, constant curvature kappa=0.015 1/m.
+%%    Excites quasi-static lateral coupling under increasing centripetal acceleration.
+%%    The speed ramp sweeps the lateral force magnitude continuously.
+%%
+%% 2. Sine steer (22 s): 50 km/h constant, sinusoidal steering 6 deg at 0.4 Hz.
+%%    Excites transient lateral dynamics; phase lag between tractor and trailer yaw
+%%    creates peak dynamic coupling force. Tests estimator tracking of rapid F_y,c reversals.
+%%
+%% 3. Grade (30 s): 50 km/h straight, road grade U(2%, 8%) uphill.
+%%    Gravity-driven longitudinal coupling: F_x,c ~ m_2 * g * sin(theta).
+%%    For other maneuvers, grade is varied U(-6%, +6%) including downhill,
+%%    which reverses the longitudinal coupling force direction (trailer pushes tractor).
+%%
+%% 4. Brake-in-turn (25 s): 60 km/h with curvature kappa=0.01 1/m from t=5s,
+%%    braking 3 m/s^2 from t=10s to standstill.
+%%    Combined longitudinal + lateral coupling; the most demanding regime.
+%%    Simultaneous deceleration and turning produce coupled F_x,c and F_y,c.
+%%
+%% Key sentence: "The four maneuvers span the coupling force plane: sustained lateral
+%% loading (circle), transient lateral dynamics with inter-unit phase lag (sine steer),
+%% gravity-driven longitudinal coupling with both positive and negative grades (grade),
+%% and combined longitudinal-lateral loading during braking in a curve."
 
 \subsection{Parameter and Noise Variations}
-%% TODO: Describe Monte Carlo-style variations:
-%% - Trailer load randomization (0--25,000 kg, CoM displacement ~ N(0, 0.1))
-%% - Cornering stiffness variations (C ~ N(9,1) × 10^4 N/rad)
-%% - IMU noise modeled via Allan variance (Hussen et al. 2015)
-%% - Wheel speed and steering angle sensor noise
-%% - Drive/brake torque discrepancy between estimator model and simulator
+%% TODO: Present as randomized operating-envelope study: 400 scenarios sampling
+%% an 11-dimensional parameter space across 4 dynamic regimes (100 cases per maneuver).
+%%
+%% Structure as a table with 3 groups + physical motivation for each:
+%%
+%% GROUP 1 -- Tire-road interaction uncertainty (dominates force generation):
+%%   - Peak friction lambda_mu (LMUX, LMUY): N(0.95, 0.1), clipped [0.65, 1.15]
+%%     Represents surface condition from dry optimal to wet/worn.
+%%   - Per-axle friction scatter: N(0, 0.05) additive per wheel-position.
+%%     Uneven wear, inflation, temperature across the 12 tires.
+%%   - Split-mu event: 20% probability; affected side drops to 40-60% of baseline.
+%%     Asymmetric friction (partial ice, shoulder departure) creates large yaw moments.
+%%   - Cornering stiffness lambda_Ky: U(0.85, 1.15). Inflation pressure, tire age.
+%%   - Longitudinal stiffness lambda_Kx: U(0.85, 1.15). Same rationale.
+%%
+%% GROUP 2 -- Loading condition (defines inertia and static coupling):
+%%   - Trailer payload mass: U(0, 25000) kg. Full commercial range, empty to legal max.
+%%   - Payload CoG height: U(1.0, 2.8) m. Flatbed (1.0) to high-cube van (2.8).
+%%     Higher CoG amplifies roll coupling and lateral load transfer.
+%%   - Payload longitudinal offset: U(-0.5, +0.5) m. Shifts kingpin load.
+%%
+%% GROUP 3 -- Operational envelope:
+%%   - Speed scale: U(0.8, 1.2), i.e. +/-20% of nominal. F_y ~ v^2.
+%%   - Curvature scale: U(0.5, 1.5), i.e. +/-50% of nominal path radius.
+%%   - Road grade: U(-6%, +6%) for circle/sine/brake_turn; U(2%, 8%) for uphill maneuver.
+%%     F_x,c ~ m*g*sin(theta); sign reversal between uphill and downhill.
+%%
+%% Justify sample size: 100 per maneuver is sufficient for robustness demonstration
+%% (not full-factorial DOE). Cite similar MC sizes in vehicle dynamics literature.
+%%
+%% Sensor noise (applied on top of VTM truth to create measurements):
+%%   - IMU noise: Allan variance parameters from Hussen et al. (2015)
+%%   - Wheel speed noise: ~ 0.1 rad/s white noise
+%%   - Steering angle noise: ~ 0.1 deg white noise
+%%   - Drive/brake torque: 5% multiplicative mismatch (estimator sees nominal, VTM uses perturbed)
+%%
+%% Fixed parameters (state in 1 sentence each, acknowledge as limitations):
+%%   - Suspension: manufacturer-specified, low real-world uncertainty
+%%   - Tractor mass: varies only ~+/-500 kg (fuel), negligible vs. 0-25 t trailer range
+%%   - Aerodynamic forces: omitted; study focuses on speeds <= 90 km/h
+%%   - Road roughness: smooth surface assumed; vertical dynamics from roughness left for future work
 
 \subsection{Real-World Data Experiments}
 %% TODO: Describe real-world test setup:
-%% - Test vehicle(s): tractor and trailer specifications
-%% - Instrumentation: sensor list, placement, specifications
-%% - Test tracks/routes and maneuvers performed
-%% - Environmental conditions
-%% - Ground truth: high-precision GPS/INS, optical systems, load cells
-%% - Challenges in obtaining coupling-force ground truth
-%% - Data preprocessing: synchronization, filtering, outlier removal, calibration
+%% - Vehicle: Same tractor-semitrailer configuration as simulation
+%%   (3-axle tractor + 3-axle ReVeRe SEM219 semitrailer)
+%% - Ground truth: Two OxTS RT3000 v3 (already described in Section 4)
+%% - Test data: 16 ice-circle maneuvers, Winter 2022 (March 7), Chalmers test site
+%%   - Low-friction (ice) constant-radius turns at varying speeds
+%%   - HDF5 files: IceCircle_2022_03_07_*.h5
+%% - Note: Ice-circle data is LOW friction, which falls outside the nominal
+%%   estimator scope (high-friction, linear tire regime). Use to demonstrate
+%%   graceful degradation / limitations of the no-slip assumption.
+%% - Preprocessing: preprocess.m script handles time alignment and signal extraction
+%% - Key challenge: no direct coupling force measurement available for real-world data;
+%%   coupling force accuracy can only be assessed indirectly (e.g., force balance consistency)
+%% - If additional high-friction real-world data is available, prioritize it here
 
 \subsection{Performance Metrics}
 The estimator is evaluated using three complementary metrics.
@@ -520,55 +613,110 @@ Finally, the maximum absolute error is
 \label{sec:results}
 
 \subsection{Simulation Results}
-%% TODO: Write simulation results:
-%% - Quantitative comparison tables: damper model vs. DAE baseline, all scenarios,
-%%   key states (v^y_1, v^y_2, f^x_C, f^y_C, psi, omega^z_1, omega^z_2)
-%% - RMSE, ANEES, Max Error per state per scenario
-%% - Time-series plots: estimate vs. ground truth with ±2σ bands
-%%   (at minimum: one circle, one sine-with-dwell, one incline example)
-%% - Error distribution plots / box plots across Monte Carlo runs
-%% - Discussion: performance across scenarios, impact of load/stiffness variation,
-%%   challenging states (lateral coupling force), uncaptured dynamics (weight transfer)
+%% TODO: Write simulation results (key deliverables):
+%%
+%% Figure 1 -- Coupling force envelope scatter plot:
+%%   - Plot peak (F_x,c, F_y,c) for all 400 cases, color-coded by maneuver.
+%%   - Demonstrates coverage of the coupling force plane. Key visual proof.
+%%
+%% Table -- RMSE comparison: damper model vs. Lagrangian baseline, per maneuver:
+%%   - States: v^y_1, v^y_2, f^x_C, f^y_C, psi_{2->1}, omega^z_1, omega^z_2
+%%   - Rows: circle / sine / grade / brake_turn / overall
+%%   - Report median and 90th percentile RMSE across the 100 MC cases
+%%
+%% Table -- ANEES per state per maneuver (filter consistency check):
+%%   - Values near 1 = consistent; >>1 = overconfident; <<1 = conservative
+%%
+%% Time-series plots (select ~3 representative cases):
+%%   - One circle case: estimate vs. truth with +/-2sigma bands for F_y,c and psi
+%%   - One sine case: show estimator tracking rapid F_y,c reversals
+%%   - One grade case: show F_x,c tracking with sign reversal (if downhill included)
+%%   - One brake_turn case: combined F_x,c + F_y,c tracking
+%%
+%% Box/violin plots:
+%%   - RMSE distributions across 100 MC cases per maneuver, per key state
+%%   - Particularly interesting: how does payload mass affect F_y,c RMSE?
+%%   - How does split-mu affect estimation accuracy?
+%%
+%% Spearman rank correlation figure:
+%%   - Parameter vs. peak estimation error. Shows which parameters matter most.
+%%   - Pure post-processing of the 400 cases, no extra simulation.
+%%
+%% Discussion points:
+%%   - Which states are hardest to estimate? (expect: lateral coupling force)
+%%   - Impact of split-mu on estimator (expect: largest errors)
+%%   - Impact of heavy payload + high CoG on lateral coupling accuracy
+%%   - Does the damper model degrade gracefully vs. Lagrangian baseline?
+%%   - Computational cost comparison per filter step
 
 \subsection{Real-World Data Results}
 %% TODO: Write real-world results:
-%% - Quantitative tables against available ground truth
-%% - Time-series plots of estimated vs. measured/reference states
-%% - Filter convergence demonstration
-%% - Comparison with simulation results: consistencies and discrepancies
-%% - Discussion of real-world challenges (sensor noise, unmodeled dynamics)
+%% - Quantitative table: RMSE for available states against OxTS ground truth
+%%   (articulation angle, yaw rates, lateral velocities -- these are directly measurable)
+%% - Note: coupling force has NO ground truth in real data; discuss indirect validation
+%%   (e.g., estimated force consistent with measured accelerations via force balance)
+%% - Time-series: 2-3 selected ice-circle runs showing estimate vs. OxTS reference
+%% - Show filter convergence: initial transient, then steady-state tracking
+%% - Discuss degradation under low-friction (ice): where does the linear tire
+%%   assumption break down? What symptoms appear in the estimates?
+%% - Compare real-world RMSE with simulation RMSE: are they in the same ballpark?
+%%   If real-world is worse, attribute to unmodeled dynamics (suspension, compliance)
 
 \subsection{Discussion}
-%% TODO: Write overall discussion:
-%% - Synthesize simulation and real-world findings
-%% - Damper model vs. DAE baseline: accuracy, robustness, computational cost
-%% - Sensitivity to damper coefficient d_c selection
-%% - Robustness to parameter mismatch
-%% - Practical implications for vehicle safety systems and control
-%% - Computational cost: time per filter step, suitability for embedded deployment
+%% TODO: Write overall discussion (~1 page):
+%%
+%% 1. Damper model vs. Lagrangian baseline:
+%%    - Accuracy: expect comparable RMSE on kinematic states (v_y, omega_z, psi).
+%%      Coupling force RMSE may differ due to damper approximation.
+%%    - Computational cost: report wall-clock time per UKF step for both.
+%%      Damper model has constant M matrix -> fixed cost per step.
+%%      Lagrangian has M(phi) -> symbolic inversion cost grows, longer compilation.
+%%    - Robustness: does one model degrade more gracefully under parameter mismatch?
+%%
+%% 2. Sensitivity to damper coefficient d_c:
+%%    - Show RMSE vs. d_c curve (sweep d_c from 10^3 to 10^7).
+%%    - Identify sweet spot and discuss physical interpretation.
+%%    - Is online adaptation of d_c needed? (Future work if yes.)
+%%
+%% 3. Operating envelope robustness (enabled by 400-case MC study):
+%%    - Which parameter variations caused the largest estimation errors?
+%%      (Spearman correlation figure from simulation results)
+%%    - Does the estimator handle split-mu? Heavy loads? Downhill?
+%%    - Are there identifiable failure modes or systematic biases?
+%%
+%% 4. Practical implications:
+%%    - Coupling force estimation enables: rollover warning, jackknife prevention,
+%%      energy-optimal braking distribution, predictive maintenance of fifth wheel.
+%%    - Requires only standard onboard sensors (no load cell).
+%%    - Real-time feasible: report ms/step on target hardware or MATLAB equivalent.
 
 \section{Conclusion}
 \label{sec:conclusion}
-%% TODO: Write conclusion (~0.5--1 page) covering:
+%% TODO: Write conclusion (~0.5 page, 3 paragraphs):
 %%
-%% Summary of key findings:
-%% - The damper-based coupling model converts DAE to explicit ODE, enabling real-time UKF
-%% - Estimation accuracy for coupling force, articulation angle, lateral velocity
-%% - Performance validated on simulation and real-world data
+%% Paragraph 1 -- Summary:
+%% - This paper proposed a damper-based coupling model that converts the naturally
+%%   implicit DAE coupling constraint into an explicit ODE with coupling force as a state.
+%% - Enables direct application of standard nonlinear filters (UKF) without algebraic solvers.
+%% - Validated on 400 randomized simulation scenarios spanning an 11-dimensional parameter
+%%   space (tire friction, payload 0-25t, CoG height, road grade -6% to +8%, speed, curvature)
+%%   across 4 dynamic regimes, plus real-world ice-circle experiments.
+%% - Report headline RMSE numbers for coupling force, articulation angle, lateral velocity.
 %%
-%% Limitations:
-%% - No lateral weight transfer modeling
-%% - Longitudinal slip neglected (high-friction only)
-%% - Linear tire model does not capture saturation
-%% - Damper coupling approximation (not true rigid constraint)
+%% Paragraph 2 -- Limitations:
+%% - Linear tire model: valid only in high-friction, low-slip conditions.
+%%   Ice-circle results showed degradation when assumption is violated.
+%% - No suspension dynamics or lateral load transfer: limits vertical force accuracy.
+%% - Damper approximation introduces a tuning parameter d_c; sensitivity was characterized
+%%   but optimal selection remains scenario-dependent.
+%% - No direct coupling force ground truth available for real-world validation.
 %%
-%% Future work:
-%% - Nonlinear tire models (Magic Formula) for low-friction scenarios
-%% - Lateral load transfer and suspension dynamics
-%% - Alternative estimators (particle filters, ML hybrids, continuous-discrete EKF)
-%% - Extension to multi-trailer configurations (A-double, B-double)
-%% - Online adaptation of damper coefficient
-%% - Embedded real-time implementation and field testing
+%% Paragraph 3 -- Future work (prioritized):
+%% 1. Nonlinear tire model (e.g., Magic Formula) for low-friction estimation.
+%% 2. Online adaptation of d_c using innovation-based methods.
+%% 3. Extension to multi-trailer (A-double, B-double) configurations.
+%% 4. Embedded real-time implementation on ECU-grade hardware.
+%% 5. Field testing with instrumented fifth-wheel load cell for direct force validation.
 
 \subsection{Performance Metrics}
 The performance of the estimator is quantified using standard metrics such as root mean square error (RMSE) and Normalized Estimation Error Squared (NEES) for each state variable, these gives a comprehensive view of both accuracy and consistency. Additionally, the estimator's computational load is measured to confirm real-time feasibility. The results are compared against the baseline implicit coupling model to demonstrate the benefits of the proposed damper-based formulation.
