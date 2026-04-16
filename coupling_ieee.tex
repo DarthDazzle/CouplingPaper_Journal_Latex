@@ -466,6 +466,19 @@ In addition to these primary scenarios, the combination was subjected to low fri
 \label{sec:experiments}
 
 \subsection{Simulation Environment}
+The simulation environment is built using an in-house high-fidelity vehicle dynamics simulator  at Volvo, showcased in Fröjd's 2021 Matlab EXPO presentation~\cite{frodj_high-fidelity_2021}. This simulator provides a detailed representation of articulated vehicle dynamics, including nonlinear tire models, multi-body dynamics, and realistic road interactions. The simulator allows for precise control over vehicle parameters, environmental conditions, and maneuver execution, enabling systematic evaluation of the estimator under a wide range of scenarios.
+
+The simulation runs at a variable time step, with a nominal sampling rate of 100~Hz for the estimator. In the simulator all measurements are generated at the same rate, and the estimator processes them as one group at each measurement arrival.
+
+Each simulation scenario is repeated multiple times with randomized parameters to assess estimator robustness. The key parameters varied include:
+\begin{itemize}
+    \item Trailer load: total mass randomized between 0 and 25,000 kg, with center of mass displacement sampled from a normal distribution (mean 0, standard deviation 0.1 m).
+    \item Tire cornering stiffness: sampled from a normal distribution with mean $9 \times 10^4$ N/rad and standard deviation $1 \times 10^4$ N/rad, reflecting typical variability in real-world conditions~\cite{hjort_tyre_2021}.
+    \item Sensor noise: IMU noise is modeled based on Allan variance data from Hussen et al.~\cite{hussen_allan_2015}, while wheel speed and steering angle sensor noise are modeled as zero-mean Gaussian with standard deviations derived from manufacturer specifications.
+    \item Drive/brake torque discrepancy: to simulate model mismatch, the applied drive/brake torque in the simulator is randomly perturbed by up to ±10% relative to the nominal values used in the estimator's process model.
+\end{itemize}
+
+
 %% TODO: Describe the high-fidelity simulator (Volvo Transport Model -- VTM)
 %% - Multi-body Simscape model, nonlinear tire forces, suspension, etc.
 %% - Reference: Fröjd (2021) Matlab EXPO presentation
@@ -473,6 +486,14 @@ In addition to these primary scenarios, the combination was subjected to low fri
 %% - Adaptations made to VTM for this study
 
 \subsection{Test Scenarios}
+For the simulation evaluation, three representative maneuvers are designed to elicit significant coupling dynamics across different operating conditions. These scenarios are selected to cover a range of lateral, yaw dynamics and actuator inputs, with a focus on conditions where the coupling forces are most pronounced. The scenarios include:
+\begin{itemize}
+    \item Steady-state cornering at different speeds and radii to evaluate lateral velocity and yaw rate estimation.
+    \item Transient lane changes to test estimator responsiveness to rapid changes in articulation angle and coupling forces.
+    \item Braking maneuvers with varying load distributions to assess robustness under changing mass/inertia conditions.
+    \item Incline driving to evaluate estimator performance under gravity-induced coupling forces and varying normal loads.
+\end{itemize}
+These scenarios are evaluated in the simulation environment with perfect ground truth, allowing for detailed analysis of estimation errors and their correlation with specific dynamic conditions. The scenarios are also designed to be reproducible in real-world testing, enabling direct comparison between simulation and experimental results. However, the real-world experiments will only cover the Steady-state cornering and braking maneuvers.
 %% TODO: Describe each scenario and justify selection:
 %% - Scenario 1: Constant-radius circle (varying radii, speed, 0.3g lateral acceleration limit)
 %%   Tests steady-state lateral dynamics and coupling force
@@ -482,6 +503,9 @@ In addition to these primary scenarios, the combination was subjected to low fri
 %%   Tests gravity compensation, roll/pitch estimation, longitudinal coupling force
 
 \subsection{Parameter and Noise Variations}
+To evaluate the robustness of the estimator to model mismatch and real-world variability, a Monte Carlo-style approach is adopted in the simulation studies. Key parameters such as trailer load distribution and tire cornering stiffness are randomized across runs to reflect the range of conditions encountered in practice. Sensor noise is also modeled based on empirical data, ensuring that the estimator's performance is assessed under realistic measurement conditions. Additionally, discrepancies between the drive/brake torque used in the simulator and the nominal values assumed by the estimator are introduced to simulate unmodeled dynamics and test the estimator's ability to adapt to such mismatches.
+
+
 %% TODO: Describe Monte Carlo-style variations:
 %% - Trailer load randomization (0--25,000 kg, CoM displacement ~ N(0, 0.1))
 %% - Cornering stiffness variations (C ~ N(9,1) × 10^4 N/rad)
@@ -490,6 +514,9 @@ In addition to these primary scenarios, the combination was subjected to low fri
 %% - Drive/brake torque discrepancy between estimator model and simulator
 
 \subsection{Real-World Data Experiments}
+The real-world experiments were conducted on a closed test track using an instrumented tractor-trailer combination. The test vehicle was equipped with a suite of sensors, including wheel encoders, IMUs, steering angle sensors, and two OxTS RT3000 v3 inertial navigation systems for ground truth. The RT3000 v3 provides high-precision measurements of position, velocity, and orientation, making it suitable for validating the estimator outputs. The majority of tests focus on high-friction conditions, where the no-slip assumption is expected to hold, while a subset of tests are conducted on low-friction surfaces (e.g., ice) to evaluate estimator performance under extreme conditions, outside the nominal operating envelope. The test maneuvers include steady-state cornering and transient braking, designed to elicit significant coupling dynamics. The recorded data is processed offline to compare the estimator outputs against the RT3000 ground truth, providing insights into estimation accuracy and robustness under real operating conditions. The real-world experiments also highlight practical challenges such as sensor noise, calibration errors, and unmodeled dynamics, which are not fully captured in the simulation environment.
+
+However, it is important to note that obtaining ground truth for coupling forces is inherently challenging in real-world experiments. The coupling force is hard to measure directly. Instead, it must be inferred from the measured states and the known vehicle parameters, which introduces additional uncertainty. The estimator's performance in estimating coupling forces will therefore be evaluated indirectly through its ability to accurately estimate related states such as articulation angle and lateral velocities, which are influenced by the coupling dynamics.
 %% TODO: Describe real-world test setup:
 %% - Test vehicle(s): tractor and trailer specifications
 %% - Instrumentation: sensor list, placement, specifications
