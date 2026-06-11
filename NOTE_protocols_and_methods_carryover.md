@@ -234,13 +234,16 @@ have no covariance story without extra machinery.
 ## 5. Where things live now (Code repo restructure 2026-06-11)
 
 - root: `runEstimationConvergence.m` (held-out sweep; SEM stop, GateVx=2)
-- `analysis/`: `compute_case_metrics.m`, `compute_binned_squared_error.m`,
-  `plot_convergence_results.m` (figures F1–F5 → `analysis/figs_convergence/`),
-  `plot_convergence_partial.m`, `benchmark_runtime.m`, `plotSobolSurface3D.m`
-- `utils/`: `runEstimation.m`, h5 one-offs (`addTrailerIMU`,
+- `+analysis/` (MATLAB namespace, call as `analysis.<fn>`): `compute_case_metrics`,
+  `compute_binned_squared_error`, `plot_convergence_results` (figures F1–F5 →
+  `+analysis/figs_convergence/`), `plot_convergence_partial`, `benchmark_runtime`,
+  `plotSobolSurface3D`
+- `+utils/`: `utils.runEstimation`, h5 one-offs (`addTrailerIMU`,
   `patchManMetricsCaseMeta`, `removeArticulationAngleFromExperiments`)
-- `tuning/`: tuning harness (`tune_campaign.m`, runners, smoke/verify/compile
-  scripts) + untracked run logs/.mat winners (notes/ retired)
+- `+tuning/`: tuning harness (`tuning.tune_campaign`, runners, smoke/verify/compile
+  scripts) + untracked run logs/.mat winners (notes/ retired). Batch invocation:
+  `matlab -batch "addpath('...\Code'); tuning.<script>"` — `run('path')` does not
+  work on namespaced scripts.
 - `VTM_CouplingForce/`: wasm generation backend (single source) + pinned
   train recipe
 - Compile times (logged): FS 72.2 s / DAE 9.4 s / Lag 9.2 s MEX (~3.1 min all
