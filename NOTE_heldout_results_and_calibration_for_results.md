@@ -124,6 +124,41 @@ standstill so the bias-vs-variance trade is visible per formulation.
   ('output-none' codegen) — per-step comparison must include the output pass
   (FS pays its Fc cost inside the filter loop; DAE/Lag pay post-hoc).
 
+## 5b. Filter-class scope (AC 2026-06-11): feasibility claim is conditional on derivative-free filters
+
+The multiplier reduction's feasibility result holds for filters that need only
+POINT EVALUATIONS of the process model f — the sigma-point family (UKF, CKF,
+divided-difference, ensemble) and particle filters. It does NOT transfer to the
+EKF, and the reason is the paper's own central mechanism:
+
+- The multiplier form defines f implicitly — each evaluation is a numeric 6×6
+  solve. f is a genuine function (unique solution while the matrix is regular),
+  but no closed-form expression of f exists to differentiate. The EKF needs
+  ∂f/∂x, and the routes to it are exactly the costs the multiplier route avoids:
+  (a) symbolic Jacobian through the solve = the symbolic elimination that is
+  intractable (the conference paper's original observation, correctly applied);
+  (b) implicit-function-theorem sensitivities, A·(∂q̈/∂x) = ∂b/∂x − (∂A/∂x)q̈ —
+  tractable in principle (one factorization, n_x extra right-hand sides per
+  step) but requires deriving and code-generating ∂A/∂x, ∂b/∂x — a significant
+  implementation burden and a per-step cost multiplier;
+  (c) finite-difference Jacobians — a degenerate sigma-point scheme with worse
+  numerics than the UKF it would replace.
+- The OTHER two reductions have closed-form f: embedding/Kane (symbolic minimal
+  coordinates) and penalty/damper (explicit ODE) are EKF-compatible as-is. So
+  filter-class compatibility is itself a model-distinction finding — add a row
+  to the comparison table: "closed-form Jacobian (EKF-ready): penalty yes /
+  embedding yes / multiplier no (implicit f)".
+- Where to say it: one scope sentence where estimator equality is established
+  (all results conditional on a sigma-point filter; per-step parity numbers are
+  UKF-specific — 2n+1(+consider) evaluations, each carrying a 6×6 factorization
+  for the multiplier model), plus the table row.
+- NUANCE — do not overclaim: the consider/Schmidt treatment is NOT UKF-specific
+  (Schmidt 1966 is EKF-heritage; consider-EKF is standard). What is UKF-specific
+  here is (i) the implicit-f compatibility above and (ii) our sigma-point
+  consider implementation with UT-propagated derived-output (Fc) covariance.
+  Phrase as "we use the sigma-point realization of the consider treatment",
+  not "consider requires the UKF".
+
 ## 6. Claims discipline (what NOT to write)
 
 - Do NOT claim generalization to arbitrary unseen maneuvers. Supported claim:
@@ -138,6 +173,10 @@ standstill so the bias-vs-variance trade is visible per formulation.
   bias; the held-out shrinkage observed was negligible (quote §3).
 - All results are simulation (VTM truth). Winter2022 real-data set exists but
   is unused — scope decision pending with supervisors.
+- Do NOT claim the multiplier formulation is feasible "in state estimators"
+  unqualified — it is feasible in DERIVATIVE-FREE filters (sigma-point family,
+  particle filters); the EKF re-opens the elimination problem (§5b). One scope
+  sentence + comparison-table row covers it.
 
 ## 7. Planned before final numbers (affects which sentences are safe to draft)
 
