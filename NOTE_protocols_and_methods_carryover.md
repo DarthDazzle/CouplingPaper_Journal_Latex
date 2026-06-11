@@ -54,7 +54,7 @@ Per model: gated mean-NRMSE + asymmetric NEES barrier, summed over every
   finding (open problem, all formulations — see NOTE_heldout §4).
 - Train/held-out split: tune + evaluate on `train_experiments/` only
   (3 maneuvers: circle_slope, brake_straight, sine; pinned recipe
-  `VTM_CouplingForce/runTrainExperimentsDLL.m`, Seed=43, CaseIdBase=1e5);
+  `experiment_gen/runTrainExperimentsDLL.m`, Seed=43, CaseIdBase=1e5);
   `experiments/` untouched as the held-out gate (Sobol seed 42, base 0 —
   disjoint by construction).
 
@@ -244,8 +244,8 @@ have no covariance story without extra machinery.
   scripts) + untracked run logs/.mat winners (notes/ retired). Batch invocation:
   `matlab -batch "addpath('...\Code'); tuning.<script>"` — `run('path')` does not
   work on namespaced scripts.
-- `VTM_CouplingForce/`: wasm generation backend (single source) + pinned
-  train recipe
+- `experiment_gen/` (ex VTM_CouplingForce): wasm generation backend (single
+  source) + pinned train recipe
 - Compile times (logged): FS 72.2 s / DAE 9.4 s / Lag 9.2 s MEX (~3.1 min all
   three) — inversion narrative: the simplest formulation is the most expensive
   to compile. Sweep wall-times (contention-biased, RELATIVE only): FS 915 /
