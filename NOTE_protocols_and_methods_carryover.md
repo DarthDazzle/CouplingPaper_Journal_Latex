@@ -239,8 +239,8 @@ have no covariance story without extra machinery.
   `plot_convergence_partial.m`, `benchmark_runtime.m`, `plotSobolSurface3D.m`
 - `utils/`: `runEstimation.m`, h5 one-offs (`addTrailerIMU`,
   `patchManMetricsCaseMeta`, `removeArticulationAngleFromExperiments`)
-- `notes/`: tuning harness only (`tune_campaign.m`, runners, smoke/verify
-  scripts) + untracked run logs/.mat winners
+- `tuning/`: tuning harness (`tune_campaign.m`, runners, smoke/verify/compile
+  scripts) + untracked run logs/.mat winners (notes/ retired)
 - `VTM_CouplingForce/`: wasm generation backend (single source) + pinned
   train recipe
 - Compile times (logged): FS 72.2 s / DAE 9.4 s / Lag 9.2 s MEX (~3.1 min all
